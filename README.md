@@ -5,10 +5,6 @@ I rebuilt the Skypal .dll using CommonLib NG so that it should work on SE, AE or
 # What does it do?
 Adds native functions to papyrus, mostly to get and filter object references.
 
-# Support Me
-- [Buy me a Coffee](https://ko-fi.com/dylbill)
-- [Become a Patron](https://www.patreon.com/Dylbill)
-
 # CommonLibSSE NG
 Because this uses [CommonLibSSE NG](https://github.com/CharmedBaryon/CommonLibSSE-NG), it supports Skyrim SE, AE, GOG, and VR.
 
@@ -26,3 +22,7 @@ Because this uses [CommonLibSSE NG](https://github.com/CharmedBaryon/CommonLibSS
       Value: `C:\path\to\wherever\your\vcpkg\folder\is`
 
 <img src="https://raw.githubusercontent.com/SkyrimDev/Images/main/images/screenshots/Setting%20Environment%20Variables/VCPKG_ROOT.png" height="150">
+
+# Support Me
+- [Buy me a Coffee](https://ko-fi.com/dylbill)
+- [Become a Patron](https://www.patreon.com/Dylbill)
