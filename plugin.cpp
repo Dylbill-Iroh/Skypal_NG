@@ -29,10 +29,11 @@ void SetupLog() {
     auto loggerPtr = std::make_shared<spdlog::logger>("log", std::move(fileLoggerPtr));
     spdlog::set_default_logger(std::move(loggerPtr));
     spdlog::set_level(spdlog::level::level_enum::trace);
-    logger::trace("{} level set to {}", __func__, akLevel);
-    spdlog::set_level(iLevel);
     spdlog::flush_on(spdlog::level::trace);
-}
+    logger::trace("{} level set to {}", __func__, iLevel);
+    spdlog::set_level(iLevel);
+    
+} 
 
 template< typename T >
 std::string IntToHex(T i)
@@ -87,22 +88,45 @@ int GetIndexInVector(std::vector<int>& v, int element) {
     return -1;
 }
 
+
+static inline void CompileAndRunImpl(RE::Script* script, RE::ScriptCompiler* compiler, RE::COMPILER_NAME name, RE::TESObjectREFR* targetRef) {
+    using func_t = decltype(CompileAndRunImpl);
+    REL::Relocation<func_t> func{ RELOCATION_ID(21416, REL::Module::get().version().patch() < 1130 ? 21890 : 441582) };
+    return func(script, compiler, name, targetRef);
+}
+
+static inline void CompileAndRun(RE::Script* script, RE::TESObjectREFR* targetRef, RE::COMPILER_NAME name = RE::COMPILER_NAME::kSystemWindowCompiler)
+{
+    RE::ScriptCompiler compiler;
+    CompileAndRunImpl(script, &compiler, name, targetRef);
+}
+
+static inline RE::ObjectRefHandle GetSelectedRefHandle() {
+    REL::Relocation<RE::ObjectRefHandle*> selectedRef{ RELOCATION_ID(519394, REL::Module::get().version().patch() < 1130 ? 405935 : 504099) };
+    return *selectedRef;
+}
+
+static inline RE::NiPointer<RE::TESObjectREFR> GetSelectedRef() {
+    auto handle = GetSelectedRefHandle();
+    return handle.get();
+}
+
 //edited form ConsoleUtil NG
 static inline void ExecuteConsoleCommand(std::string a_command, RE::TESObjectREFR* objRef) {
-   //logger::info("{} called. Command = {}", __func__, a_command);
-
     const auto scriptFactory = RE::IFormFactory::GetConcreteFormFactoryByType<RE::Script>();
     const auto script = scriptFactory ? scriptFactory->Create() : nullptr;
     if (script) {
-        // const auto selectedRef = RE::Console::GetSelectedRef();
         script->SetCommand(a_command);
 
         if (objRef) {
-            script->CompileAndRun(objRef);
+            CompileAndRun(script, objRef);
         }
         else {
-            script->CompileAndRun(RE::Console::GetSelectedRef().get());
+            const auto selectedRef = GetSelectedRef();
+            //script->CompileAndRun(selectedRef.get());
+            CompileAndRun(script, selectedRef.get());
         }
+
         delete script;
     }
 }
@@ -122,20 +146,19 @@ std::vector<RE::TESObjectREFR*> All(RE::StaticFunctionTag*) {
 
 std::vector<RE::TESObjectREFR*> Grid(RE::StaticFunctionTag*) {
     std::vector<RE::TESObjectREFR*> refs;
-
-    auto* tes = RE::TES::GetSingleton();
-    if (!tes) {
-        logger::error("{} couldn't get TES singleton", __func__);
-        return refs;
+    const auto& [allForms, lock] = RE::TESForm::GetAllForms();
+    for (auto& [id, form] : *allForms) {
+        auto* ref = form->AsReference();
+        if (ref) {
+            auto* cell = ref->GetParentCell();
+            if (cell) {
+                if (cell->IsAttached()) {
+                    refs.push_back(ref);
+                }
+            }
+        }
     }
 
-    tes->ForEachReference([&](RE::TESObjectREFR& akRef) {
-        RE::TESObjectREFR* ref = &akRef;
-        if (ref){
-            refs.push_back(ref);
-        }
-        return RE::BSContainer::ForEachResult::kContinue;
-    });
     return refs;
 }
 
@@ -211,7 +234,7 @@ std::vector<RE::TESObjectREFR*> Grid_Filter_Bases(RE::StaticFunctionTag*, std::v
                 }
             }
             return RE::BSContainer::ForEachResult::kContinue;
-        });
+            });
     }
     else {
         tes->ForEachReference([&](RE::TESObjectREFR& akRef) {
@@ -222,7 +245,7 @@ std::vector<RE::TESObjectREFR*> Grid_Filter_Bases(RE::StaticFunctionTag*, std::v
                 }
             }
             return RE::BSContainer::ForEachResult::kContinue;
-        });
+            });
     }
 
     return refs;
@@ -246,7 +269,7 @@ std::vector<RE::TESObjectREFR*> Grid_Filter_Bases_Form_List(RE::StaticFunctionTa
                 }
             }
             return RE::BSContainer::ForEachResult::kContinue;
-        });
+            });
     }
     else {
         tes->ForEachReference([&](RE::TESObjectREFR& akRef) {
@@ -257,7 +280,7 @@ std::vector<RE::TESObjectREFR*> Grid_Filter_Bases_Form_List(RE::StaticFunctionTa
                 }
             }
             return RE::BSContainer::ForEachResult::kContinue;
-        });
+            });
     }
 
     return refs;
@@ -273,7 +296,7 @@ int Count_Disabled(RE::StaticFunctionTag*, std::vector<RE::TESObjectREFR*> refs)
         }
     }
     return count;
-} 
+}
 
 int Count_Enabled(RE::StaticFunctionTag*, std::vector<RE::TESObjectREFR*> refs) {
     int count = 0;
@@ -285,7 +308,7 @@ int Count_Enabled(RE::StaticFunctionTag*, std::vector<RE::TESObjectREFR*> refs) 
         }
     }
     return count;
-} 
+}
 
 void Disable(RE::StaticFunctionTag*, std::vector<RE::TESObjectREFR*> refs) {
     for (int i = 0; i < refs.size(); i++) {
@@ -299,7 +322,7 @@ void Enable(RE::StaticFunctionTag*, std::vector<RE::TESObjectREFR*> refs) {
     for (int i = 0; i < refs.size(); i++) {
         if (refs[i]) {
             //didn't see an Enable function in TESObjectREFR, so using console command as workaround.
-            ExecuteConsoleCommand("enable", refs[i]); 
+            ExecuteConsoleCommand("enable", refs[i]);
         }
     }
 }
@@ -338,7 +361,7 @@ std::vector<RE::TESObjectREFR*> Filter_Base_Form_Types(RE::StaticFunctionTag*, s
             }
         }
     }
-    
+
     return returnRefs;
 }
 
@@ -441,27 +464,48 @@ int GetCollisionLayerType(RE::TESObjectREFR* ref) {
 }
 
 void SetCollisionLayerType(RE::TESObjectREFR* ref, int collision_layer_type) {
+    logger::info("{} called {}", __func__, collision_layer_type);
+
     if (!ref) {
         //logger::warn("{} ref doesn't exist", __func__);
         return;
     }
 
     if (collision_layer_type < 1 || collision_layer_type > 46) {
-        //logger::error("{} collision_layer_type {} is invalid", __func__, collision_layer_type);
+        logger::error("{} collision_layer_type {} is invalid", __func__, collision_layer_type);
         return;
     }
 
-    auto* nav = ref->Get3D();
+    RE::NiAVObject* nav = ref->Get3D();
     if (!nav) {
-        //logger::warn("{} 3d for ref {} Id {:x} not found", __func__, GetFormName(ref), ref->GetFormID());
+        logger::warn("{} 3d for ref {} Id {:x} not found", __func__, GetFormName(ref), ref->GetFormID());
         return;
     }
 
-    RE::COL_LAYER coLayer = static_cast<RE::COL_LAYER>(collision_layer_type);
-    std::string node = "";
-    SKSE::GetTaskInterface()->AddTask([node, nav, coLayer]() {
-        nav->SetCollisionLayer(coLayer);
-    });
+    logger::info("{} current collision layer is {}", __func__, int(nav->GetCollisionLayer()));
+
+    RE::Actor* akActor = ref->As<RE::Actor>();
+    if (akActor) {
+        RE::COL_LAYER coLayer = static_cast<RE::COL_LAYER>(collision_layer_type);
+        std::string node = "";
+        SKSE::GetTaskInterface()->AddTask([node, nav, coLayer, akActor]() {
+            uint32_t filter;
+            akActor->GetCollisionFilterInfo(filter);
+            nav->SetCollisionLayerAndGroup(coLayer, filter);
+            nav->UpdateRigidConstraints(true);
+            logger::info("collision layer set on actor");
+            });
+    }
+    else {
+        RE::COL_LAYER coLayer = static_cast<RE::COL_LAYER>(collision_layer_type);
+        std::string node = "";
+        SKSE::GetTaskInterface()->AddTask([node, nav, coLayer]() {
+            nav->SetCollisionLayer(coLayer);
+            logger::info("collision layer set");
+            //nav->SetCollisionLayerAndGroup(coLayer, filterInfo + 1);
+            //nav->UpdateRigidConstraints(true);
+            });
+    }
 }
 
 std::vector<RE::TESObjectREFR*> Filter_Collision_Layer_Types(RE::StaticFunctionTag*, std::vector<RE::TESObjectREFR*> refs, std::vector<int> collision_layer_types, std::string mode) {
@@ -501,7 +545,7 @@ std::vector<RE::TESObjectREFR*> Filter_Collision_Layer_Types(RE::StaticFunctionT
     return returnRefs;
 }
 
-void Change_Collision_Layer_Type(RE::StaticFunctionTag*, std::vector<RE::TESObjectREFR*> refs, int collision_layer_type){
+void Change_Collision_Layer_Type(RE::StaticFunctionTag*, std::vector<RE::TESObjectREFR*> refs, int collision_layer_type) {
     if (collision_layer_type < 1 || collision_layer_type > 46) {
         logger::error("{} collision_layer_type {} is invalid", __func__, collision_layer_type);
         return;
@@ -701,7 +745,7 @@ int CountNumberOfKeywordsRefHas(RE::StaticFunctionTag* tag, RE::TESObjectREFR* r
     if (!ref) {
         logger::warn("{} ref doesn't exist", __func__);
         return count;
-    } 
+    }
 
     int size = keywords.size();
 
@@ -807,7 +851,7 @@ std::vector<RE::BGSKeyword*> filter_keywordsOnRef(RE::StaticFunctionTag* tag, RE
             }
         }
     }
-   
+
     return returnKeywords;
 }
 
@@ -841,7 +885,7 @@ std::vector<RE::TESObjectREFR*> Filter_Keywords(RE::StaticFunctionTag*, std::vec
             }
         }
     }
-    else if (mode == "^"){
+    else if (mode == "^") {
         for (int i = 0; i < refsSize; i++) {
             if (refs[i]) {
                 if (CountNumberOfKeywordsRefHas_cpp(refs[i], keywords) == 1) {
@@ -900,15 +944,15 @@ int GetFactionRank(RE::Actor* akActor, RE::TESFaction* faction) {
     }
     akActor->VisitFactions([&](RE::TESFaction* akfaction, int8_t rank) -> bool {
         if (akfaction == faction) {
-            returnRank = rank; 
+            returnRank = rank;
             return true;
         }
         return true;
-    });
+        });
     return returnRank;
 }
 
-bool IsActorOwnerOfEncounterZone_cpp(RE::Actor* akActor, RE::BGSEncounterZone* encounterZone, bool &hasOwner) {
+bool IsActorOwnerOfEncounterZone_cpp(RE::Actor* akActor, RE::BGSEncounterZone* encounterZone, bool& hasOwner) {
     if (!akActor) {
         //logger::warn("{} akActor doesn't exist", __func__);
         return false;
@@ -917,7 +961,7 @@ bool IsActorOwnerOfEncounterZone_cpp(RE::Actor* akActor, RE::BGSEncounterZone* e
         //logger::warn("{} encounterZone doesn't exist", __func__);
         return false;
     }
-    
+
     RE::TESForm* ownerForm = encounterZone->data.zoneOwner;
 
     if (ownerForm) {
@@ -1196,7 +1240,7 @@ std::vector<RE::Actor*> filter_OwnersOnRef(RE::StaticFunctionTag* tag, RE::TESOb
         logger::warn("{} no owners passed in", __func__);
         return returnActors;
     }
-    
+
     if (mode == "!") {
         for (int i = 0; i < size; i++) {
             if (owners[i]) {
@@ -1887,7 +1931,7 @@ std::vector<RE::TESObjectREFR*> Sort_Distance(RE::StaticFunctionTag*, std::vecto
         std::reverse(distances.begin(), distances.end());
     }
     distances.erase(std::unique(distances.begin(), distances.end()), distances.end());
-   
+
     for (int i = 0; i < distances.size(); i++) {
         auto it = refsMap.find(distances[i]);
         if (it != refsMap.end()) {
@@ -1902,7 +1946,7 @@ std::vector<RE::TESObjectREFR*> Sort_Distance(RE::StaticFunctionTag*, std::vecto
 }
 
 std::vector<RE::TESForm*> From_References(RE::StaticFunctionTag*, std::vector<RE::TESObjectREFR*> refs, std::string mode) {
-    std::vector<RE::TESForm*> returnForms; 
+    std::vector<RE::TESForm*> returnForms;
 
     int refsSize = refs.size();
     if (refsSize == 0) {
@@ -1941,7 +1985,7 @@ bool Has_DLL(RE::StaticFunctionTag*) {
 }
 
 std::vector<int> Get_Version(RE::StaticFunctionTag*) {
-    std::vector<int> version {1, 1, 0};
+    std::vector<int> version {1, 1, 2};
     return version;
 }
 
@@ -1952,22 +1996,22 @@ bool Has_Version(RE::StaticFunctionTag*, int major, int minor, int patch, std::s
     int fVersion = ((version[0] * 100) + (version[1] * 10) + version[2]);
 
     if (mode == "!=") {
-        return (cVersion != fVersion);
+        return (fVersion != cVersion);
     }
     else if (mode == "<") {
-        return (cVersion < fVersion);
+        return (fVersion < cVersion);
     }
     else if (mode == ">") {
-        return (cVersion > fVersion);
+        return (fVersion > cVersion);
     }
     else if (mode == "<=") {
-        return (cVersion <= fVersion);
+        return (fVersion <= cVersion);
     }
     else if (mode == ">=") {
-        return (cVersion >= fVersion);
+        return (fVersion >= cVersion);
     }
 
-    return (cVersion == fVersion);
+    return (fVersion == cVersion);
 }
 
 float Microseconds(RE::StaticFunctionTag*) {
@@ -2048,8 +2092,16 @@ bool BindPapyrusFunctions(RE::BSScript::IVirtualMachine* vm) {
 
 SKSEPluginLoad(const SKSE::LoadInterface *skse) {
     SKSE::Init(skse);
+
     SetupLog();
     SKSE::GetPapyrusInterface()->Register(BindPapyrusFunctions);
     pluginStartTimePoint = std::chrono::high_resolution_clock::now();
+
+    // Once all plugins and mods are loaded, then the ~ console is ready and can
+    // be printed to
+    SKSE::GetMessagingInterface()->RegisterListener([](SKSE::MessagingInterface::Message *message) {
+        if (message->type == SKSE::MessagingInterface::kDataLoaded)
+            RE::ConsoleLog::GetSingleton()->Print("Skypal NG Installed");
+    });
     return true;
 }
